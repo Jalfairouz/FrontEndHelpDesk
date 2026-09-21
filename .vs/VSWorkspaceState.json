@@ -1,0 +1,16 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\helpdesk",
+    "\\helpdesk\\app",
+    "\\helpdesk\\app\\(admin)\\admin",
+    "\\helpdesk\\app\\(admin)\\admin\\users",
+    "\\helpdesk\\app\\(admin)\\admin\\users\\create",
+    "\\helpdesk\\app\\(admin)\\admin\\users\\[id]",
+    "\\helpdesk\\app\\(dashboard)",
+    "\\helpdesk\\app\\(dashboard)\\dashboard",
+    "\\helpdesk\\components\\ui"
+  ],
+  "SelectedNode": "\\helpdesk\\app\\(dashboard)\\dashboard\\page.tsx",
+  "PreviewInSolutionExplorer": false
+}
