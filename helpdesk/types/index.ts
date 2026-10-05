@@ -147,3 +147,10 @@ export interface MeResponse {
   isActive: boolean;
   role: string;
 }
+
+export interface Technician {
+  id: string;
+  displayName: string;
+  email: string;
+  isActive: boolean;
+}

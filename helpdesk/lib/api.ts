@@ -1,7 +1,7 @@
 
 import { LoginResponse, RegisterResponse , TicketDetails  , MeResponse
   , CreateTicketInput, TicketComment , Ticket, UpdateTicketInput, UserDetails, CreateUserInput
-, ChangeUserRoleInput, ChangeUserStatusInput, UpdateUserInput, TicketStatus} from "@/types";
+, ChangeUserRoleInput, ChangeUserStatusInput, UpdateUserInput, TicketStatus, Technician} from "@/types";
 import { getToken, clearToken } from "./auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -175,13 +175,45 @@ if (!response.ok) {
 }
   return data;
 }
+export async function getMe(): Promise<MeResponse> {
+  return request<MeResponse>("/api/users/me");
 
+}
+export async function getTechnicians(): Promise<Technician[]> {
+  return request<Technician[]>("/api/users/Technicians");
+}
 export async function getTickets(): Promise<Ticket[]> {
   return request<Ticket[]>("/api/tickets");
 }
-export async function getMe(): Promise<MeResponse> {
-  return request<MeResponse>("/api/users/me");
+export async function getAssignedTickets(): Promise<Ticket[]> {
+  return request<Ticket[]>("/api/tickets/assigned");
 }
+export async function getAdminTickets(params?: {
+  status?: TicketStatus;
+  mine?: boolean;
+  unassigned?: boolean;
+}): Promise<Ticket[]> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.status !== undefined) {
+    searchParams.set("status", String(params.status));
+  }
+
+  if (params?.mine !== undefined) {
+    searchParams.set("mine", String(params.mine));
+  }
+
+  if (params?.unassigned !== undefined) {
+    searchParams.set("unassigned", String(params.unassigned));
+  }
+
+  const query = searchParams.toString();
+
+  return request<Ticket[]>(
+    `/api/tickets/admin${query ? `?${query}` : ""}`
+  );
+}
+
 export async function createTicket(
   data: CreateTicketInput
 ): Promise<Ticket> {
@@ -221,6 +253,17 @@ export async function deleteTicket(ticketId: string): Promise<void> {
     `/api/tickets/${ticketId}`,
     {
       method: "DELETE",
+    }
+  );
+}
+export async function assignTicketToTechnician(ticketId: string, technicianId: string): Promise<TicketDetails> {
+  return request<TicketDetails>(
+    `/api/tickets/${ticketId}/assign`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        technicianId,
+      }),
     }
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { getTickets } from "@/lib/api";
+import { getAssignedTickets } from "@/lib/api";
 import { getToken, getRole, decodeToken, getUserId } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,7 +51,7 @@ export default function TicketsPage() {
             try {
                 const [ticketsData] = await Promise.all([
                 
-                getTickets(),
+                getAssignedTickets(),
                 
             ]);
 
