@@ -15,19 +15,14 @@ import {
 import type { MeResponse, Ticket } from "@/types";
 import { User } from "lucide-react";
 
-import { getRole, getToken, decodeToken } from "@/lib/auth";
-
-
 export default function DashboardPage() {
     const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [user, setUser] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
-      const token = getToken();
-    const decoded = token ? decodeToken(token) : null;
+
   useEffect(() => {
     async function loadDashboard() {
-      
       try {
         const [userData, ticketsData] = await Promise.all([
           getMe(),
@@ -64,6 +59,7 @@ export default function DashboardPage() {
     (ticket) => ticket.status === "Closed"
   ).length;
 
+  // باقي JSX...
 
 
   return  (
@@ -100,9 +96,9 @@ export default function DashboardPage() {
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader>
-          <CardTitle> Tickets</CardTitle>
+          <CardTitle>My Tickets</CardTitle>
           <CardDescription>
-            Total tickets
+            Total tickets you created
           </CardDescription>
         </CardHeader>
 
@@ -162,17 +158,16 @@ export default function DashboardPage() {
     {/* Tickets */}
     <Card>
       <CardHeader className="flex items-center justify-between">
-        <CardTitle> Tickets</CardTitle>
+        <CardTitle>My Tickets</CardTitle>
 
         <CardDescription>
           Your recent IT support tickets
         </CardDescription>
-        {decoded &&
-          ["Admin", "Employee"].includes(getRole(decoded) ?? "") && (
-            <Button onClick={() => router.push("/tickets/create")}>
-              Create New Ticket
-            </Button>
-          )}
+        
+      <Button onClick={() => router.push("/tickets/create")}>
+        Create New Ticket
+      </Button>
+        
       </CardHeader>
         
       <CardContent>

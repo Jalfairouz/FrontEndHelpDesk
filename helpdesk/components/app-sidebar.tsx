@@ -67,8 +67,8 @@ const adminItems = [
     icon: User,
   },
  {
-    title: "Users Tickets",
-    url: "/tickets",
+    title: "System Tickets",
+    url: "/admin/system-tickets",
     icon: Ticket,
   },
  

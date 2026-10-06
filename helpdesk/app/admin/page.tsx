@@ -15,12 +15,15 @@ import {
 } from "@/components/ui/card";
 import { Badge, User } from "lucide-react";
 
-import type {  UserDetails } from "@/types";
+import type {  UserDetails, StatusFilter } from "@/types";
 export default function AdminPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserDetails[]>([]);
   const[ tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+const [status, setStatus] = useState<StatusFilter>("");
+
   const token = getToken();
   const decoded = token ? decodeToken(token) : null;
 
@@ -57,7 +60,7 @@ if (loading) {
 return (
     <div className="p-6">
     {decoded &&
-    ["Admin", "Technician"].includes(getRole(decoded) ?? "") && (
+    ["Admin"].includes(getRole(decoded) ?? "") && (
     <div className="space-y-4 gap-4">
       <Card >
         <CardHeader>

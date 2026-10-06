@@ -175,43 +175,36 @@ if (!response.ok) {
 }
   return data;
 }
-export async function getMe(): Promise<MeResponse> {
-  return request<MeResponse>("/api/users/me");
 
-}
-export async function getTechnicians(): Promise<Technician[]> {
-  return request<Technician[]>("/api/users/Technicians");
-}
 export async function getTickets(): Promise<Ticket[]> {
   return request<Ticket[]>("/api/tickets");
 }
 export async function getAssignedTickets(): Promise<Ticket[]> {
   return request<Ticket[]>("/api/tickets/assigned");
 }
-export async function getAdminTickets(params?: {
+export async function getSystemTickets(params?: {
   status?: TicketStatus;
-  mine?: boolean;
   unassigned?: boolean;
 }): Promise<Ticket[]> {
   const searchParams = new URLSearchParams();
 
-  if (params?.status !== undefined) {
-    searchParams.set("status", String(params.status));
-  }
-
-  if (params?.mine !== undefined) {
-    searchParams.set("mine", String(params.mine));
-  }
-
-  if (params?.unassigned !== undefined) {
-    searchParams.set("unassigned", String(params.unassigned));
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        searchParams.set(key, String(value));
+      }
+    });
   }
 
   const query = searchParams.toString();
 
   return request<Ticket[]>(
-    `/api/tickets/admin${query ? `?${query}` : ""}`
+    `/api/tickets/system${query ? `?${query}` : ""}`
   );
+}
+
+export async function getMe(): Promise<MeResponse> {
+  return request<MeResponse>("/api/users/me");
 }
 
 export async function createTicket(
@@ -253,17 +246,6 @@ export async function deleteTicket(ticketId: string): Promise<void> {
     `/api/tickets/${ticketId}`,
     {
       method: "DELETE",
-    }
-  );
-}
-export async function assignTicketToTechnician(ticketId: string, technicianId: string): Promise<TicketDetails> {
-  return request<TicketDetails>(
-    `/api/tickets/${ticketId}/assign`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        technicianId,
-      }),
     }
   );
 }
@@ -332,4 +314,18 @@ export async function deleteUser(userId: string): Promise<void> {
       method: "DELETE",
     }
   );
+}
+export async function assignTicketToTechnician(ticketId: string, technicianId: string): Promise<TicketDetails> {
+  return request<TicketDetails>(
+    `/api/tickets/${ticketId}/assign`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        technicianId,
+      }),
+    }
+  );
+}
+export async function getTechnicians(): Promise<Technician[]> {
+  return request<Technician[]>("/api/users/Technicians");
 }
