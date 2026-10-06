@@ -68,7 +68,7 @@ const adminItems = [
   },
  {
     title: "Users Tickets",
-    url: "/admin/tickets",
+    url: "/tickets",
     icon: Ticket,
   },
  
@@ -87,7 +87,7 @@ const TechnicianItems = [
   },
   {
     title: "Tickets",
-    url: "/technician/tickets",
+    url: "/tickets",
     icon: Ticket,
   },
 
