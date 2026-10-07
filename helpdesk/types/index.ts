@@ -1,4 +1,7 @@
+export type { Role } from "@/lib/routes";
+
 export type TicketStatus = "Open" | "Closed" | "InProgress";
+export type StatusFilter = "" | TicketStatus;
 export type TicketPriority = "Low" | "Medium" | "High";
 export type TicketType = "Incident" | "ServiceRequest";
 export type TicketCategory =
@@ -9,8 +12,9 @@ export type TicketCategory =
   | "Email"
   | "Security"
   | "Other";
-export type UserRole = "Admin" | "Technician"| "Employee";
+export type UserRole = "Admin" | "Technician" | "Employee";
 export type UserStatus = "Active" | "Inactive";
+
 export interface Ticket {
   id: string;
   title: string;
@@ -25,6 +29,7 @@ export interface Ticket {
   updatedAt: string | null;
   closedAt: string | null;
 }
+
 export interface TicketDetails {
   id: string;
   title: string;
@@ -42,7 +47,6 @@ export interface TicketDetails {
   ticketHistories: TicketHistory[];
 }
 
-
 export interface TicketHistory {
   id: string;
   ticketId: string;
@@ -55,13 +59,13 @@ export interface TicketComment {
   id: string;
   ticketId: string;
   authorUserId: string;
-  authorName: string;
+  authorName?: string; 
   content: string;
   createdAt: string;
 }
 
 export interface CreateCommentInput {
-    ticketId: string;
+  ticketId: string;
   content: string;
 }
 
@@ -72,15 +76,13 @@ export interface CreateTicketInput {
   type: TicketType;
   category: TicketCategory;
 }
-export interface UpdateTicketInput {
-  title?: string;
-  description?: string;
-  type?: TicketType;
-  category?: TicketCategory;
-  priority?: TicketPriority;
 
-  status?: TicketStatus;
-  comment?: string;
+export interface UpdateTicketInput {
+  title: string;
+  description: string;
+  type: TicketType;
+  category: TicketCategory;
+  priority: TicketPriority;
 }
 
 export interface CreateUserInput {
@@ -100,38 +102,32 @@ export interface UpdateUserInput {
   email: string;
   firstName: string;
   lastName: string;
-  
 }
 export interface RegisterInput {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
 }
-
-
 export interface LoginInput {
-    email: string;
-    password: string;
-}
-export interface LoginResponse {
-    token: string;
-}
-export interface ApiErrorResponse {
-    message: string;
-}
-
-
-export interface UserDetails {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    isActive: boolean;
-    role: string;
+  email: string;
+  password: string;
 }
 export interface LoginResponse {
   accessToken: string;
+  expiresAt: string;
+}
+export interface ApiErrorResponse {
+  message: string;
+}
+
+export interface UserDetails {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  isActive: boolean;
+  role: string;
 }
 export interface RegisterResponse {
   id: string;

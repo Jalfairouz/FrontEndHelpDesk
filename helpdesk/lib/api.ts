@@ -1,41 +1,80 @@
+import type {
+  ChangeUserRoleInput,
+  ChangeUserStatusInput,
+  CreateTicketInput,
+  CreateUserInput,
+  LoginResponse,
+  MeResponse,
+  RegisterResponse,
+  Technician,
+  Ticket,
+  TicketComment,
+  TicketDetails,
+  TicketStatus,
+  UpdateTicketInput,
+  UpdateUserInput,
+  UserDetails,
+} from "@/types";
+import { clearToken, getToken } from "./auth";
 
-import { LoginResponse, RegisterResponse , TicketDetails  , MeResponse
-  , CreateTicketInput, TicketComment , Ticket, UpdateTicketInput, UserDetails, CreateUserInput
-, ChangeUserRoleInput, ChangeUserStatusInput, UpdateUserInput, TicketStatus, Technician} from "@/types";
-import { getToken, clearToken } from "./auth";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
 
   constructor(message: string, status: number) {
     super(message);
+    this.name = "ApiError";
     this.status = status;
   }
 }
+
+async function readErrorMessage(
+  res: Response,
+  fallback: string
+): Promise<string> {
+  try {
+    const body = await res.json();
+
+    if (body?.message) {
+      return Array.isArray(body.message)
+        ? body.message.join(" | ")
+        : String(body.message);
+    }
+
+    if (body?.errors && typeof body.errors === "object") {
+      const all = Object.values(body.errors).flat().map(String);
+      if (all.length > 0) return all.join(" | ");
+    }
+
+    if (body?.error) return String(body.error);
+    if (body?.title) return String(body.title);
+  } catch {
+  }
+
+  return fallback;
+}
+
+type RequestOptions = RequestInit & {
+  auth?: boolean;
+};
+
 export async function request<T>(
   path: string,
-  options: RequestInit = {}
+  { auth = true, ...options }: RequestOptions = {}
 ): Promise<T> {
-  const token = getToken();
+  const token = auth ? getToken() : null;
 
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-
-      ...(token
-        ? {
-            Authorization: `Bearer ${token}`,
-          }
-        : {}),
-
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
-  if (res.status === 401) {
+
+  if (res.status === 401 && auth) {
     clearToken();
 
     if (typeof window !== "undefined") {
@@ -45,71 +84,34 @@ export async function request<T>(
     throw new ApiError("Session expired", 401);
   }
 
+  if (res.status === 403) {
+    throw new ApiError("You don't have permission to do this.", 403);
+  }
+
   if (!res.ok) {
-    let message = `Request failed with status ${res.status}`;
-
-    try {
-      const errorBody = await res.json();
-
-      if (errorBody.message) {
-        message = errorBody.message;
-      } else if (errorBody.errors) {
-        const firstError = Object.values(
-          errorBody.errors
-        )[0];
-
-        message = Array.isArray(firstError)
-          ? String(firstError[0])
-          : message;
-      }
-    } catch {
-    }
-
-    throw new ApiError(message, res.status);
+    throw new ApiError(
+      await readErrorMessage(res, `Request failed (${res.status})`),
+      res.status
+    );
   }
 
   if (res.status === 204) {
     return undefined as T;
   }
 
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
-export async function getUser(): Promise<any> {
-  const response = await request("/api/auth/user");
-  return response;
-  
-}
+
 export async function loginUser(
   email: string,
   password: string
 ): Promise<LoginResponse> {
-  const response = await fetch(`${API_URL}/api/auth/login`, {
+  const data = await request<LoginResponse>("/api/auth/login", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      email,
-      password,
-    }),
+    auth: false,
+    body: JSON.stringify({ email, password }),
   });
-
-  let data: any;
-
-  try {
-    data = await response.json();
-  } catch {
-    data = {};
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message ||
-      data?.error ||
-      `Login failed (${response.status})`
-    );
-  }
 
   if (!data?.accessToken) {
     throw new Error("لم يتم استلام accessToken من الـ Backend");
@@ -118,214 +120,163 @@ export async function loginUser(
   return data;
 }
 
-
-
-
 export async function registerUser(
   email: string,
   password: string,
   firstName: string,
   lastName: string
 ): Promise<RegisterResponse> {
-  
-  const response = await fetch(
-    `${API_URL}/api/auth/register`,
-    {
-      method: 'POST',
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        password,
-        firstName,
-        lastName,
-      }),
-    }
-  );
-
-  let data: any;
-
-  try {
-    data = await response.json();
-  } catch {
-    data = {};
-  }
-if (!response.ok) {
-    let errorMessage = "حدث خطأ أثناء التسجيل";
-
-    if (data?.errors && typeof data.errors === 'object') {
-      const allErrors: string[] = [];
-      Object.values(data.errors).forEach((errorMessages: any) => {
-        if (Array.isArray(errorMessages)) {
-          allErrors.push(...errorMessages);
-        } else {
-          allErrors.push(errorMessages);
-        }
-      });
-      errorMessage = allErrors.join(' | ');
-    } 
-    else if (data?.message) {
-      errorMessage = Array.isArray(data.message) ? data.message.join(' | ') : data.message;
-    } else if (data?.title) {
-      errorMessage = data.title;
-    }
-
-    throw new Error(errorMessage);
+  return request<RegisterResponse>("/api/auth/register", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ email, password, firstName, lastName }),
+  });
 }
-  return data;
-}
+
+
+
 
 export async function getTickets(): Promise<Ticket[]> {
   return request<Ticket[]>("/api/tickets");
 }
+
 export async function getAssignedTickets(): Promise<Ticket[]> {
   return request<Ticket[]>("/api/tickets/assigned");
 }
+
 export async function getSystemTickets(params?: {
   status?: TicketStatus;
   unassigned?: boolean;
 }): Promise<Ticket[]> {
   const searchParams = new URLSearchParams();
 
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        searchParams.set(key, String(value));
-      }
-    });
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.unassigned !== undefined) {
+    searchParams.set("unassigned", String(params.unassigned));
   }
 
   const query = searchParams.toString();
 
-  return request<Ticket[]>(
-    `/api/tickets/system${query ? `?${query}` : ""}`
-  );
+  return request<Ticket[]>(`/api/tickets/system${query ? `?${query}` : ""}`);
 }
 
-export async function getMe(): Promise<MeResponse> {
-  return request<MeResponse>("/api/users/me");
-}
-
-export async function createTicket(
-  data: CreateTicketInput
-): Promise<Ticket> {
+export async function createTicket(data: CreateTicketInput): Promise<Ticket> {
   return request<Ticket>("/api/tickets", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
-export async function getTicketById( ticketId: string): Promise<TicketDetails > {
-  return request<TicketDetails >(
-    `/api/tickets/${ticketId}`
-  );
+
+export async function getTicketById(ticketId: string): Promise<TicketDetails> {
+  return request<TicketDetails>(`/api/tickets/${ticketId}`);
 }
-export async function updateTicket(ticketId: string, data: UpdateTicketInput): Promise<TicketDetails> {
-  return request<TicketDetails>(
-    `/api/tickets/${ticketId}`,
-    {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }
-  );
+
+export async function updateTicket(
+  ticketId: string,
+  data: UpdateTicketInput
+): Promise<TicketDetails> {
+  return request<TicketDetails>(`/api/tickets/${ticketId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
 }
-export async function updateTicketStatus(ticketId: string, status: TicketStatus): Promise<TicketDetails> {
-  return request<TicketDetails>(
-    `/api/tickets/${ticketId}/status`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        status,
-      }),
-    }
-  );
+
+export async function updateTicketStatus(
+  ticketId: string,
+  status: TicketStatus
+): Promise<TicketDetails> {
+  return request<TicketDetails>(`/api/tickets/${ticketId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export async function deleteTicket(ticketId: string): Promise<void> {
-  return request<void>(
-    `/api/tickets/${ticketId}`,
-    {
-      method: "DELETE",
-    }
-  );
+  return request<void>(`/api/tickets/${ticketId}`, { method: "DELETE" });
 }
-export async function getCommentsByTicketId(ticketId: string): Promise<TicketComment[]> {
-  return request<TicketComment[]>(
-    `/api/tickets/${ticketId}/comments`
-  );
+
+export async function assignTicketToTechnician(
+  ticketId: string,
+  technicianId: string
+): Promise<TicketDetails> {
+  return request<TicketDetails>(`/api/tickets/${ticketId}/assign`, {
+    method: "PATCH",
+    body: JSON.stringify({ technicianId }),
+  });
 }
-export async function addCommentToTicket(ticketId: string, content: string): Promise<TicketComment> {
-  return request<TicketComment>(
-    `/api/tickets/${ticketId}/comments`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        content,
-      }),
-    }
-  );
+
+export async function getCommentsByTicketId(
+  ticketId: string
+): Promise<TicketComment[]> {
+  return request<TicketComment[]>(`/api/tickets/${ticketId}/comments`);
 }
+
+export async function addCommentToTicket(
+  ticketId: string,
+  content: string
+): Promise<TicketComment> {
+  return request<TicketComment>(`/api/tickets/${ticketId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
+
+
+
+export async function getMe(): Promise<MeResponse> {
+  return request<MeResponse>("/api/users/me");
+}
+
 export async function getUsers(): Promise<UserDetails[]> {
   return request<UserDetails[]>("/api/users");
 }
+
 export async function getUserById(userId: string): Promise<UserDetails> {
-  return request<UserDetails>(
-    `/api/users/${userId}`
-  );
+  return request<UserDetails>(`/api/users/${userId}`);
 }
+
 export async function createUser(data: CreateUserInput): Promise<UserDetails> {
   return request<UserDetails>("/api/users", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
-export async function updateUser(userId: string, data: UpdateUserInput): Promise<UserDetails> {
-  return request<UserDetails>(
-    `/api/users/${userId}`,
-    {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }
-  );
-}
-export async function changeUserRole(userId: string, data: ChangeUserRoleInput): Promise<UserDetails> {
-  return request<UserDetails>(
-    `/api/users/${userId}/role`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    }
-  );
+
+export async function updateUser(
+  userId: string,
+  data: UpdateUserInput
+): Promise<UserDetails> {
+  return request<UserDetails>(`/api/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
 }
 
-export async function changeUserStatus(userId: string, data: ChangeUserStatusInput): Promise<UserDetails> {
-  return request<UserDetails>(
-    `/api/users/${userId}/active-status`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    }
-  );
+export async function changeUserRole(
+  userId: string,
+  data: ChangeUserRoleInput
+): Promise<UserDetails> {
+  return request<UserDetails>(`/api/users/${userId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
 }
+
+export async function changeUserStatus(
+  userId: string,
+  data: ChangeUserStatusInput
+): Promise<UserDetails> {
+  return request<UserDetails>(`/api/users/${userId}/active-status`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function deleteUser(userId: string): Promise<void> {
-  return request<void>(
-    `/api/users/${userId}`,
-    {
-      method: "DELETE",
-    }
-  );
+  return request<void>(`/api/users/${userId}`, { method: "DELETE" });
 }
-export async function assignTicketToTechnician(ticketId: string, technicianId: string): Promise<TicketDetails> {
-  return request<TicketDetails>(
-    `/api/tickets/${ticketId}/assign`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        technicianId,
-      }),
-    }
-  );
-}
+
 export async function getTechnicians(): Promise<Technician[]> {
   return request<Technician[]>("/api/users/Technicians");
 }

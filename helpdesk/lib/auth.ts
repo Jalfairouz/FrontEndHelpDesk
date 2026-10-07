@@ -1,39 +1,28 @@
-const TOKEN_KEY = "token";
+import { decodeToken, getEmail, getRole, getUserId, isTokenExpired } from "./jwt";
+import { TOKEN_COOKIE, type Role } from "./routes";
 
-const ROLE_CLAIM =
-  "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+export * from "./jwt";
 
-const EMAIL_CLAIM =
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress";
-
-const USER_ID_CLAIM =
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
-
-export interface DecodedToken {
-  sub?: string;
-  email?: string;
-  exp: number;
-  [key: string]: unknown;
+export interface Session {
+  token: string;
+  userId: string | null;
+  email: string | null;
+  role: Role;
 }
-
-/**
- * Save token for:
- * 1. localStorage -> API requests
- * 2. Cookie -> middleware authentication
- */
 export function saveToken(token: string): void {
   if (typeof window === "undefined") return;
 
-  // Used by client-side API requests
-  localStorage.setItem(TOKEN_KEY, token);
+  const decoded = decodeToken(token);
+  const secondsLeft = decoded
+    ? Math.floor(decoded.exp - Date.now() / 1000)
+    : 3600;
 
-  // Used by Next.js middleware
   const isSecure = window.location.protocol === "https:";
 
   document.cookie = [
-    `${TOKEN_KEY}=${encodeURIComponent(token)}`,
+    `${TOKEN_COOKIE}=${encodeURIComponent(token)}`,
     "path=/",
-    "max-age=604800",
+    `max-age=${Math.max(secondsLeft, 0)}`,
     "samesite=lax",
     isSecure ? "secure" : "",
   ]
@@ -41,111 +30,50 @@ export function saveToken(token: string): void {
     .join("; ");
 }
 
-/**
- * Get token for client-side API requests
- */
 export function getToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
+  if (typeof document === "undefined") return null;
 
-  return localStorage.getItem(TOKEN_KEY);
-}
+  const entry = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${TOKEN_COOKIE}=`));
 
-/**
- * Remove authentication token
- */
-export function clearToken(): void {
-  if (typeof window === "undefined") return;
+  if (!entry) return null;
 
-  localStorage.removeItem(TOKEN_KEY);
-
-  document.cookie =
-    `${TOKEN_KEY}=; path=/; max-age=0; samesite=lax`;
-}
-
-/**
- * Decode JWT token
- */
-export function decodeToken(token: string): DecodedToken | null {
   try {
-    const payload = token.split(".")[1];
-
-    if (!payload) {
-      return null;
-    }
-
-    const decoded = JSON.parse(
-      atob(
-        payload
-          .replace(/-/g, "+")
-          .replace(/_/g, "/")
-      )
-    );
-
-    return decoded;
+    return decodeURIComponent(entry.slice(TOKEN_COOKIE.length + 1));
   } catch {
     return null;
   }
 }
 
-/**
- * Check if token is expired
- */
-export function isTokenExpired(decoded: DecodedToken): boolean {
-  return decoded.exp * 1000 < Date.now();
+export function clearToken(): void {
+  if (typeof window === "undefined") return;
+
+  document.cookie = `${TOKEN_COOKIE}=; path=/; max-age=0; samesite=lax`;
+
+  try {
+    localStorage.removeItem("token");
+  } catch {
+
+  }
 }
 
-/**
- * Get user roles
- */
-export function getRoles(decoded: DecodedToken): string[] {
-  const raw = decoded[ROLE_CLAIM] ?? decoded.role;
+export function getSession(): Session | null {
+  const token = getToken();
+  if (!token) return null;
 
-  if (!raw) {
-    return [];
+  const decoded = decodeToken(token);
+  const role = decoded ? getRole(decoded) : null;
+
+  if (!decoded || !role || isTokenExpired(decoded)) {
+    clearToken();
+    return null;
   }
 
-  return Array.isArray(raw)
-    ? (raw as string[])
-    : [raw as string];
-}
-
-/**
- * Get user email
- */
-export function getEmail(
-  decoded: DecodedToken
-): string | null {
-  return (
-    (decoded[EMAIL_CLAIM] as string) ??
-    (decoded.email as string) ??
-    null
-  );
-}
-
-/**
- * Get user ID
- */
-export function getUserId(
-  decoded: DecodedToken
-): string | null {
-  return (
-    (decoded[USER_ID_CLAIM] as string) ??
-    (decoded.sub as string) ??
-    null
-  );
-}
-
-/**
- * Get primary user role
- */
-export function getRole(
-  decoded: DecodedToken
-): string | null {
-  return (
-    (decoded[ROLE_CLAIM] as string) ??
-    (decoded.role as string) ??
-    null
-  );
+  return {
+    token,
+    userId: getUserId(decoded),
+    email: getEmail(decoded),
+    role,
+  };
 }
