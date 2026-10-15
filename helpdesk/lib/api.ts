@@ -14,6 +14,7 @@ import type {
   UpdateTicketInput,
   UpdateUserInput,
   UserDetails,
+  NotificationItem,
 } from "@/types";
 import { clearToken, getToken } from "./auth";
 
@@ -279,4 +280,24 @@ export async function deleteUser(userId: string): Promise<void> {
 
 export async function getTechnicians(): Promise<Technician[]> {
   return request<Technician[]>("/api/users/Technicians");
+}
+
+
+export async function getNotifications(take = 30): Promise<NotificationItem[]> {
+  return request<NotificationItem[]>(`/api/notifications?take=${take}`);
+}
+
+export async function getUnreadCount(): Promise<number> {
+  const data = await request<{ unreadCount: number }>(
+    "/api/notifications/unread-count"
+  );
+  return data.unreadCount;
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await request(`/api/notifications/${id}/read`, { method: "PATCH" });
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await request("/api/notifications/read-all", { method: "PATCH" });
 }

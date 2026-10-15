@@ -149,3 +149,13 @@ export interface Technician {
   email: string;
   isActive: boolean;
 }
+export interface NotificationItem {
+  id: string;
+  notificationId: string;
+  ticketId: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  isRead: boolean;
+  readAt: string | null;
+}
