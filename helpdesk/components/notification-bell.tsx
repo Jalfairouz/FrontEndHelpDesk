@@ -2,7 +2,6 @@
 
 import { Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,33 +10,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useNotifications } from "@/hooks/use-notifications";
-import { useRequireRole } from "@/hooks/use-require-role";
+import { useNotifications } from "@/components/notifications-provider";
+import { useSession } from "@/hooks/use-session";
 import { formatDate } from "@/lib/ticket-ui";
-import type { NotificationItem } from "@/types";
+
+const BELL_ITEMS = 8;
 
 export function NotificationBell() {
-  const { ready } = useRequireRole();
-
-
-  if (!ready) return null;
-
-  return <NotificationBellInner />;
-}
-
-function NotificationBellInner() {
   const router = useRouter();
+  const session = useSession();
+  const { items, unreadCount, connected, markRead, markAllRead } = useNotifications();
 
-  const { items, unreadCount, connected, markRead, markAllRead } =
-    useNotifications((n: NotificationItem) => {
-      toast(n.title, {
-        description: n.message,
-        action: {
-          label: "View",
-          onClick: () => router.push(`/tickets/${n.ticketId}`),
-        },
-      });
-    });
+  if (!session) return null;
 
   return (
     <DropdownMenu>
@@ -52,7 +36,6 @@ function NotificationBellInner() {
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
-
 
         <span
           className={`absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full ${
@@ -78,7 +61,7 @@ function NotificationBellInner() {
             No notifications yet.
           </div>
         ) : (
-          items.map((n) => (
+          items.slice(0, BELL_ITEMS).map((n) => (
             <DropdownMenuItem
               key={n.id}
               className="flex cursor-pointer flex-col items-start gap-1 py-2"
@@ -97,13 +80,22 @@ function NotificationBellInner() {
                 )}
               </div>
 
-              <span className="text-xs text-muted-foreground">{n.message}</span>
+              <span dir="auto" className="text-xs text-muted-foreground">
+                {n.message}
+              </span>
               <span className="text-[11px] text-muted-foreground">
                 {formatDate(n.createdAt)}
               </span>
             </DropdownMenuItem>
           ))
         )}
+
+        <DropdownMenuItem
+          className="cursor-pointer justify-center text-sm font-medium"
+          onClick={() => router.push("/notifications")}
+        >
+          View all notifications
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

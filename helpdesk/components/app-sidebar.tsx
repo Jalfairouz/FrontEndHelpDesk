@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Bell,
   LayoutDashboard,
   LogOut,
   PlusCircle,
@@ -23,45 +23,43 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { clearToken, getSession } from "@/lib/auth";
+import { useSession } from "@/hooks/use-session";
+import { clearToken } from "@/lib/auth";
 import type { Role } from "@/lib/routes";
-
 interface MenuItem {
   title: string;
   url: string;
   icon: LucideIcon;
 }
-
 const MENU: Record<Role, MenuItem[]> = {
   Employee: [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Profile", url: "/profile", icon: User },
     { title: "My Tickets", url: "/tickets", icon: Ticket },
     { title: "Create Ticket", url: "/tickets/create", icon: PlusCircle },
+    { title: "Notifications", url: "/notifications", icon: Bell },
   ],
-   Admin: [
+  Admin: [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Manage Users", url: "/admin/users", icon: User },
     { title: "System Tickets", url: "/admin/system-tickets", icon: Ticket },
     { title: "API Logs", url: "/admin/logs", icon: ScrollText },
+    { title: "Notifications", url: "/notifications", icon: Bell },
   ],
   Technician: [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Profile", url: "/profile", icon: User },
     { title: "Tickets", url: "/tickets", icon: Ticket },
+    { title: "Notifications", url: "/notifications", icon: Bell },
   ],
 };
 
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [role, setRole] = useState<Role | null>(null);
+  const session = useSession();
 
-  useEffect(() => {
-    setRole(getSession()?.role ?? null);
-  }, [pathname]);
-
-  const items = role ? MENU[role] : [];
+  const items = session ? MENU[session.role] : [];
 
   return (
     <Sidebar>

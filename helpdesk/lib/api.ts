@@ -284,8 +284,15 @@ export async function getTechnicians(): Promise<Technician[]> {
 }
 
 
-export async function getNotifications(take = 30): Promise<NotificationItem[]> {
-  return request<NotificationItem[]>(`/api/notifications?take=${take}`);
+export async function getNotifications(
+  params: { take?: number; skip?: number } = {}
+): Promise<NotificationItem[]> {
+  const search = new URLSearchParams({
+    take: String(params.take ?? 20),
+    skip: String(params.skip ?? 0),
+  });
+
+  return request<NotificationItem[]>(`/api/notifications?${search}`);
 }
 
 export async function getUnreadCount(): Promise<number> {

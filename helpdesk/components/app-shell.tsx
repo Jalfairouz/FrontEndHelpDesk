@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationBell } from "@/components/notification-bell";
+import { NotificationsProvider } from "@/components/notifications-provider";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { isPublicRoute } from "@/lib/routes";
 
@@ -16,19 +17,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
+    <NotificationsProvider>
+      <SidebarProvider>
+        <AppSidebar />
 
-      <main className="w-full">
-        <div className="flex h-14 items-center justify-between border-b px-4">
-          <SidebarTrigger />
-          <NotificationBell />
-        </div>
+        <main className="w-full">
+          <div className="flex h-14 items-center justify-between border-b px-4">
+            <SidebarTrigger />
+            <NotificationBell />
+          </div>
 
-        {children}
-      </main>
+          {children}
+        </main>
 
-      <Toaster position="top-right" richColors />
-    </SidebarProvider>
+        <Toaster position="top-right" richColors />
+      </SidebarProvider>
+    </NotificationsProvider>
   );
 }

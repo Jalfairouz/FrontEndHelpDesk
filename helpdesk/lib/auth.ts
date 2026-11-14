@@ -58,17 +58,12 @@ export function clearToken(): void {
   }
 }
 
-export function getSession(): Session | null {
-  const token = getToken();
-  if (!token) return null;
 
+export function sessionFromToken(token: string): Session | null {
   const decoded = decodeToken(token);
   const role = decoded ? getRole(decoded) : null;
 
-  if (!decoded || !role || isTokenExpired(decoded)) {
-    clearToken();
-    return null;
-  }
+  if (!decoded || !role || isTokenExpired(decoded)) return null;
 
   return {
     token,
@@ -76,4 +71,14 @@ export function getSession(): Session | null {
     email: getEmail(decoded),
     role,
   };
+}
+
+export function getSession(): Session | null {
+  const token = getToken();
+  if (!token) return null;
+
+  const session = sessionFromToken(token);
+  if (!session) clearToken();
+
+  return session;
 }
