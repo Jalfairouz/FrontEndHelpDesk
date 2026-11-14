@@ -7,11 +7,11 @@ import {
   LayoutDashboard,
   LogOut,
   PlusCircle,
+  ScrollText,
   Ticket,
   User,
   type LucideIcon,
 } from "lucide-react";
-
 import {
   Sidebar,
   SidebarContent,
@@ -39,10 +39,11 @@ const MENU: Record<Role, MenuItem[]> = {
     { title: "My Tickets", url: "/tickets", icon: Ticket },
     { title: "Create Ticket", url: "/tickets/create", icon: PlusCircle },
   ],
-  Admin: [
+   Admin: [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Manage Users", url: "/admin/users", icon: User },
     { title: "System Tickets", url: "/admin/system-tickets", icon: Ticket },
+    { title: "API Logs", url: "/admin/logs", icon: ScrollText },
   ],
   Technician: [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },

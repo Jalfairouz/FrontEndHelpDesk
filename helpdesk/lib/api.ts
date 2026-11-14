@@ -13,6 +13,7 @@ import type {
   TicketStatus,
   UpdateTicketInput,
   UpdateUserInput,
+    LogsPage, 
   UserDetails,
   NotificationItem,
 } from "@/types";
@@ -300,4 +301,7 @@ export async function markNotificationRead(id: string): Promise<void> {
 
 export async function markAllNotificationsRead(): Promise<void> {
   await request("/api/notifications/read-all", { method: "PATCH" });
+}
+export async function getLogs(page = 1, size = 50): Promise<LogsPage> {
+  return request<LogsPage>(`/api/logs?page=${page}&size=${size}`);
 }

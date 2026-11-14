@@ -159,3 +159,28 @@ export interface NotificationItem {
   isRead: boolean;
   readAt: string | null;
 }
+export interface ApiLog {
+  correlationId: string;
+  timestamp: string | null;
+  respondedAt: string | null;
+  method: string | null;
+  path: string | null;
+  query: string | null;
+  service: string | null;
+  userId: string | null;
+  role: string | null;
+  clientIp: string | null;
+  userAgent: string | null;
+  requestSize: number | null;
+  statusCode: number | null;
+  durationMs: number | null;
+  responseSize: number | null;
+  error: string | null;
+}
+
+export interface LogsPage {
+  total: number;
+  page: number;
+  size: number;
+  items: ApiLog[];
+}
