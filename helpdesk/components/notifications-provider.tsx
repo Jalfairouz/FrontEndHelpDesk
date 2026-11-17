@@ -25,7 +25,7 @@ import {
 import { getSession, getToken } from "@/lib/auth";
 import type { NotificationItem } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 const PAGE_SIZE = 20;
 
 interface NotificationsContextValue {
