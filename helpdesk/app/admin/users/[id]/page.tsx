@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { User } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 
 import { deleteUser, getUserById } from "@/lib/api";
 import { useRequireRole } from "@/hooks/use-require-role";
+import { initialsOf } from "@/lib/user-ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,17 +17,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import type { UserDetails } from "@/types";
 
 export default function UserDetailsPage() {
@@ -78,72 +72,109 @@ export default function UserDetailsPage() {
   };
 
   if (!ready || loading) {
-    return <div className="p-6">Loading...</div>;
+    return (
+      <div className="mx-auto w-full max-w-3xl space-y-6 p-4 md:p-8">
+        <Skeleton className="h-6 w-20" />
+        <Skeleton className="h-16 w-72" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   }
 
-  if (error) {
-    return <div className="p-6 text-red-500">{error}</div>;
+  if (error || !user) {
+    return (
+      <div className="mx-auto max-w-3xl p-4 md:p-8">
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error || "User not found."}
+        </div>
+      </div>
+    );
   }
 
-  if (!user) {
-    return <div className="p-6">User not found</div>;
-  }
-
-  const fields = [
-    { id: "email", label: "Email", value: user.email },
-    { id: "firstName", label: "First Name", value: user.firstName },
-    { id: "lastName", label: "Last Name", value: user.lastName },
-    { id: "role", label: "Role", value: user.role },
-    { id: "status", label: "Status", value: user.isActive ? "Active" : "Inactive" },
+  const rows = [
+    { label: "Email", value: user.email },
+    { label: "First name", value: user.firstName },
+    { label: "Last name", value: user.lastName },
+    { label: "Role", value: user.role },
+    {
+      label: "Status",
+      value: (
+        <span className="inline-flex items-center gap-2">
+          <span
+            className={cn(
+              "h-2.5 w-2.5 rounded-full",
+              user.isActive ? "bg-chart-2" : "bg-muted-foreground/60"
+            )}
+          />
+          {user.isActive ? "Active" : "Inactive"}
+        </span>
+      ),
+    },
   ];
 
   return (
-    <div className="container mx-auto max-w-3xl space-y-8 p-6">
-      <Card>
-        <CardHeader>
-          <User className="h-5 w-5 text-muted-foreground" />
-          <CardTitle>Profile</CardTitle>
-          <CardDescription>View user profile</CardDescription>
-        </CardHeader>
+    <div className="mx-auto w-full max-w-3xl space-y-8 p-4 md:p-8">
+      <div className="space-y-6">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
 
-        <CardContent>
-          <div className="flex flex-col gap-4">
-            {fields.map((field) => (
-              <div className="space-y-2" key={field.id}>
-                <Label htmlFor={field.id}>{field.label}</Label>
-                <Input id={field.id} value={field.value} disabled />
-              </div>
-            ))}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-14 w-14">
+              <AvatarFallback className="bg-primary text-lg text-primary-foreground">
+                {initialsOf(user.firstName, user.lastName)}
+              </AvatarFallback>
+            </Avatar>
+
+            <div>
+              <h1 className="text-2xl font-medium tracking-tight">
+                {user.firstName} {user.lastName}
+              </h1>
+              <p className="text-sm text-muted-foreground">{user.email}</p>
+            </div>
           </div>
-        </CardContent>
 
-        <CardFooter className="gap-3">
-          <Button
-            className="flex-1"
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-          >
-            Back
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/admin/users/${user.id}/edit`)}
+            >
+              <Pencil className="h-4 w-4" />
+              Edit
+            </Button>
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          </div>
+        </div>
+      </div>
 
-          <Button
-            className="bg-red-600 hover:bg-red-700"
-            onClick={() => setDeleteOpen(true)}
+      <dl className="divide-y rounded-lg border">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
           >
-            Delete
-          </Button>
-        </CardFooter>
-      </Card>
+            <dt className="text-muted-foreground">{row.label}</dt>
+            <dd>{row.value}</dd>
+          </div>
+        ))}
+      </dl>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Are you sure you want to delete this user?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Delete this user?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. The user will be permanently deleted.
+              This can't be undone. {user.firstName} {user.lastName} will be
+              permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -151,7 +182,7 @@ export default function UserDetailsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>

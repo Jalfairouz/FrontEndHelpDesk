@@ -1,22 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 import { getUsers } from "@/lib/api";
 import { useRequireRole } from "@/hooks/use-require-role";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { initialsOf } from "@/lib/user-ui";
+import { FilterTabs } from "@/components/filter-tabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import type { UserDetails } from "@/types";
+
+type RoleFilter = "" | "Admin" | "Technician" | "Employee";
+
+const ROLE_TABS: { value: RoleFilter; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "Admin", label: "Admins" },
+  { value: "Technician", label: "Technicians" },
+  { value: "Employee", label: "Employees" },
+];
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -25,6 +40,9 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [role, setRole] = useState<RoleFilter>("");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (!ready) return;
@@ -49,96 +67,138 @@ export default function AdminUsersPage() {
     };
   }, [ready]);
 
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+
+    return users.filter((user) => {
+      if (role && user.role !== role) return false;
+      if (!q) return true;
+
+      return (
+        `${user.firstName} ${user.lastName}`.toLowerCase().includes(q) ||
+        user.email.toLowerCase().includes(q)
+      );
+    });
+  }, [users, role, query]);
+
   if (!ready || loading) {
-    return <div className="p-6">Loading...</div>;
+    return (
+      <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-8">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-72 w-full" />
+      </div>
+    );
   }
 
   return (
-    <div className="p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-          <CardDescription>Manage users</CardDescription>
-        </CardHeader>
+    <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-medium tracking-tight">Users</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {visible.length} of {users.length} user{users.length === 1 ? "" : "s"}
+          </p>
+        </div>
 
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-end">
-              <Button
-                variant="outline"
-                onClick={() => router.push("/admin/users/create")}
-              >
-                Create User
-              </Button>
-            </div>
+        <Link href="/admin/users/create" className={buttonVariants()}>
+          <Plus className="h-4 w-4" />
+          New user
+        </Link>
+      </div>
 
-            {error && (
-              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-                {error}
-              </div>
-            )}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+        <FilterTabs label="Role" value={role} onChange={setRole} tabs={ROLE_TABS} />
 
-            <div className="w-full">
-              {users.map((user) => (
-                <div className="space-y-4 rounded-lg p-2" key={user.id}>
-                  <Card className="relative gap-4">
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          <span>
-                            {user.firstName} {user.lastName}
-                          </span>
-                        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            placeholder="Search name or email"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+      </div>
 
-                        <Badge
-                          className={
-                            user.isActive
-                              ? "bg-green-100 text-green-700 hover:bg-green-100"
-                              : "bg-red-100 text-red-700 hover:bg-red-100"
-                          }
-                        >
-                          {user.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </CardTitle>
+      {error && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
-                      <CardDescription className="text-sm">
-                        {user.role}
-                      </CardDescription>
-                    </CardHeader>
+      {visible.length === 0 ? (
+        <div className="rounded-lg border border-dashed py-14 text-center text-sm text-muted-foreground">
+          No users match your search.
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b hover:bg-transparent">
+                <TableHead className="pl-4">User</TableHead>
+                <TableHead className="hidden w-36 sm:table-cell">Role</TableHead>
+                <TableHead className="w-32">Status</TableHead>
+                <TableHead className="w-24 pr-4" />
+              </TableRow>
+            </TableHeader>
 
-                    <CardContent>
-                      <div className="text-sm text-muted-foreground">
-                        {user.email}
+            <TableBody>
+              {visible.map((user) => (
+                <TableRow
+                  key={user.id}
+                  className="cursor-pointer"
+                  onClick={() => router.push(`/admin/users/${user.id}`)}
+                >
+                  <TableCell className="pl-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className="text-xs">
+                          {initialsOf(user.firstName, user.lastName)}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="min-w-0">
+                        <p className="truncate text-sm">
+                          {user.firstName} {user.lastName}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {user.email}
+                        </p>
                       </div>
-                    </CardContent>
+                    </div>
+                  </TableCell>
 
-                    <CardFooter className="gap-4 p-4">
-                      <Button
-                        className="flex-5"
-                        variant="outline"
-                        onClick={() => router.push(`/admin/users/${user.id}`)}
-                      >
-                        View
-                      </Button>
+                  <TableCell className="hidden text-sm sm:table-cell">
+                    {user.role}
+                  </TableCell>
 
-                      <Button
-                        className="flex-2"
-                        variant="outline"
-                        onClick={() =>
-                          router.push(`/admin/users/${user.id}/edit`)
-                        }
-                      >
-                        Edit
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                </div>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-2 text-sm">
+                      <span
+                        className={cn(
+                          "h-2.5 w-2.5 rounded-full",
+                          user.isActive ? "bg-chart-2" : "bg-muted-foreground/60"
+                        )}
+                      />
+                      {user.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </TableCell>
+
+                  <TableCell className="pr-4 text-right">
+                    <Link
+                      href={`/admin/users/${user.id}/edit`}
+                      onClick={(e) => e.stopPropagation()}
+                      className={buttonVariants({ variant: "outline", size: "sm" })}
+                    >
+                      Edit
+                    </Link>
+                  </TableCell>
+                </TableRow>
               ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

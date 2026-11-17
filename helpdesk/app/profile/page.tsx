@@ -1,26 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, User } from "lucide-react";
 
 import { getMe } from "@/lib/api";
 import { useRequireRole } from "@/hooks/use-require-role";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { initialsOf } from "@/lib/user-ui";
+import { FormError, FormPage } from "@/components/form-page";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { MeResponse } from "@/types";
 
 export default function ProfilePage() {
-  const router = useRouter();
   const { ready } = useRequireRole();
 
   const [user, setUser] = useState<MeResponse | null>(null);
@@ -51,54 +41,54 @@ export default function ProfilePage() {
   }, [ready]);
 
   if (!ready || loading) {
-    return <div className="p-6">Loading...</div>;
+    return (
+      <div className="mx-auto w-full max-w-2xl space-y-4 p-4 md:p-8">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-16 w-72" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
   }
 
-  const fields = [
-    { id: "email", label: "Email", value: user?.email },
-    { id: "firstName", label: "First Name", value: user?.firstName },
-    { id: "lastName", label: "Last Name", value: user?.lastName },
-    { id: "role", label: "Role", value: user?.role },
-  ];
-
   return (
-    <div className="container mx-auto max-w-3xl space-y-8 p-6">
-      <Card>
-        <CardHeader>
-          <User className="h-5 w-5 text-muted-foreground" />
-          <CardTitle>Profile</CardTitle>
-          <CardDescription>View your profile</CardDescription>
-        </CardHeader>
+    <FormPage title="Profile" description="Your account details.">
+      {error || !user ? (
+        <FormError message={error || "Profile not found."} />
+      ) : (
+        <div className="space-y-8">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-14 w-14">
+              <AvatarFallback className="bg-primary text-lg text-primary-foreground">
+                {initialsOf(user.firstName, user.lastName)}
+              </AvatarFallback>
+            </Avatar>
 
-        <CardContent>
-          <div className="space-y-4">
-            {error && (
-              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-                {error}
-              </div>
-            )}
+            <div>
+              <p className="text-lg font-medium">
+                {user.firstName} {user.lastName}
+              </p>
+              <p className="text-sm text-muted-foreground">{user.email}</p>
+            </div>
+          </div>
 
-            {fields.map((field) => (
-              <div className="space-y-2" key={field.id}>
-                <Label htmlFor={field.id}>{field.label}</Label>
-                <Input id={field.id} value={field.value ?? ""} disabled />
+          <dl className="divide-y rounded-lg border">
+            {[
+              { label: "First name", value: user.firstName },
+              { label: "Last name", value: user.lastName },
+              { label: "Email", value: user.email },
+              { label: "Role", value: user.role },
+            ].map((row) => (
+              <div
+                key={row.label}
+                className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
+              >
+                <dt className="text-muted-foreground">{row.label}</dt>
+                <dd>{row.value}</dd>
               </div>
             ))}
-          </div>
-        </CardContent>
-
-        <CardFooter>
-          <Button
-            className="w-full"
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
+          </dl>
+        </div>
+      )}
+    </FormPage>
   );
 }
