@@ -2,19 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, User } from "lucide-react";
 
-import { assignTicketToTechnician, getTechnicians } from "@/lib/api";
-import { useRequireRole } from "@/hooks/use-require-role";
-import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  assignTicketToTechnician,
+  getTechnicians,
+  getTicketById,
+} from "@/lib/api";
+import { useRequireRole } from "@/hooks/use-require-role";
+import { Field, FormActions, FormError, FormPage } from "@/components/form-page";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import type { Technician } from "@/types";
+
+const initialsOf = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 
 export default function AssignTicketPage() {
   const router = useRouter();
@@ -24,7 +33,8 @@ export default function AssignTicketPage() {
   const { ready } = useRequireRole(["Admin"]);
 
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [selectedTechnician, setSelectedTechnician] = useState("");
+  const [ticketTitle, setTicketTitle] = useState("");
+  const [selected, setSelected] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
@@ -35,10 +45,16 @@ export default function AssignTicketPage() {
 
     let cancelled = false;
 
-    async function loadTechnicians() {
+    async function load() {
       try {
-        const data = await getTechnicians();
-        if (!cancelled) setTechnicians(data);
+        const [techs, ticket] = await Promise.all([
+          getTechnicians(),
+          getTicketById(ticketId).catch(() => null),
+        ]);
+
+        if (cancelled) return;
+        setTechnicians(techs);
+        setTicketTitle(ticket?.title ?? "");
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -50,127 +66,145 @@ export default function AssignTicketPage() {
       }
     }
 
-    loadTechnicians();
+    load();
 
     return () => {
       cancelled = true;
     };
-  }, [ready]);
+  }, [ready, ticketId]);
 
   const handleAssign = async () => {
-    if (!selectedTechnician) {
-      setError("Please select a technician.");
+    if (!selected) {
+      setError("Pick a technician first.");
       return;
     }
 
+    setAssigning(true);
+    setError("");
+
     try {
-      setAssigning(true);
-      setError("");
-
-      await assignTicketToTechnician(ticketId, selectedTechnician);
-
+      await assignTicketToTechnician(ticketId, selected);
       router.push(`/tickets/${ticketId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to assign ticket");
-    } finally {
       setAssigning(false);
     }
   };
 
   if (!ready || loading) {
-    return <div className="container mx-auto p-6">Loading technicians...</div>;
+    return (
+      <div className="mx-auto w-full max-w-2xl space-y-4 p-4 md:p-8">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto max-w-3xl space-y-6 p-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Assign Ticket</h1>
-          <p className="mt-2 text-muted-foreground">
-            Select a technician to assign this ticket to.
-          </p>
-        </div>
-
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-      </div>
-
-      {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-600">
-          {error}
-        </div>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Available Technicians</CardTitle>
-          <CardDescription>Choose a technician for ticket #{ticketId}</CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
+    <FormPage
+      title="Assign ticket"
+      description={
+        ticketTitle ? (
+          <>
+            Choose who will handle <bdi className="text-foreground">{ticketTitle}</bdi>
+          </>
+        ) : (
+          "Choose who will handle this ticket."
+        )
+      }
+    >
+      <div className="space-y-6">
+        <Field label="Technician">
           {technicians.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">
+            <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
               No technicians available.
             </div>
           ) : (
-            <div className="space-y-3">
-              {technicians.map((technician) => {
-                const selected = selectedTechnician === technician.id;
+            <ul
+              role="radiogroup"
+              aria-label="Technician"
+              className="divide-y overflow-hidden rounded-lg border"
+            >
+              {technicians.map((tech) => {
+                const isSelected = selected === tech.id;
 
                 return (
-                  <button
-                    key={technician.id}
-                    type="button"
-                    disabled={!technician.isActive}
-                    onClick={() => setSelectedTechnician(technician.id)}
-                    className={`w-full rounded-lg border p-4 text-left transition ${
-                      selected
-                        ? "border-primary bg-primary/5 ring-2 ring-primary"
-                        : "hover:bg-muted/50"
-                    } ${
-                      !technician.isActive ? "cursor-not-allowed opacity-50" : ""
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                          <User className="h-5 w-5" />
-                        </div>
+                  <li key={tech.id}>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      disabled={!tech.isActive}
+                      onClick={() => setSelected(tech.id)}
+                      className={cn(
+                        "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
+                        isSelected ? "bg-primary/10" : "hover:bg-muted/60",
+                        !tech.isActive && "cursor-not-allowed opacity-50"
+                      )}
+                    >
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className="text-xs">
+                          {initialsOf(tech.displayName)}
+                        </AvatarFallback>
+                      </Avatar>
 
-                        <div>
-                          <p className="font-medium">{technician.displayName}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {technician.email}
-                          </p>
-                        </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm">{tech.displayName}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {tech.email}
+                        </p>
                       </div>
 
-                      <span
-                        className={`text-sm ${
-                          technician.isActive ? "text-green-600" : "text-red-600"
-                        }`}
-                      >
-                        {technician.isActive ? "Active" : "Inactive"}
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span
+                          className={cn(
+                            "h-2 w-2 rounded-full",
+                            tech.isActive
+                              ? "bg-chart-2"
+                              : "bg-muted-foreground/50"
+                          )}
+                        />
+                        {tech.isActive ? "Active" : "Inactive"}
                       </span>
-                    </div>
-                  </button>
+
+                      <span
+                        className={cn(
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                          isSelected ? "border-primary" : "border-input"
+                        )}
+                      >
+                        {isSelected && (
+                          <span className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </span>
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
+        </Field>
 
+        <FormError message={error} />
+
+        <FormActions>
           <Button
-            className="w-full"
-            disabled={!selectedTechnician || assigning}
+            type="button"
+            variant="outline"
+            disabled={assigning}
+            onClick={() => router.back()}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={!selected || assigning}
             onClick={handleAssign}
           >
-            {assigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {assigning ? "Assigning..." : "Assign Ticket"}
+            {assigning ? "Assigning..." : "Assign ticket"}
           </Button>
-        </CardContent>
-      </Card>
-    </div>
+        </FormActions>
+      </div>
+    </FormPage>
   );
 }

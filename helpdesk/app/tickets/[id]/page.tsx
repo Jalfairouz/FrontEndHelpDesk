@@ -1,15 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  ArrowUp,
-  Calendar,
-  Clock,
-  Tag,
-  User,
-} from "lucide-react";
+import { ArrowLeft, ArrowUp, CheckCircle2, Pencil, Trash2 } from "lucide-react";
 
 import {
   addCommentToTicket,
@@ -17,7 +10,8 @@ import {
   getTicketById,
 } from "@/lib/api";
 import { useRequireRole } from "@/hooks/use-require-role";
-import { formatDate, getPriorityClass, getStatusClass } from "@/lib/ticket-ui";
+import { formatDate, formatDateShort, shortId } from "@/lib/ticket-ui";
+import { PriorityMark, StatusMark } from "@/components/status-mark";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,18 +22,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import type { TicketDetails } from "@/types";
+import type { TicketComment, TicketDetails, TicketHistory } from "@/types";
+
+type ActivityItem =
+  | { kind: "comment"; id: string; at: string; comment: TicketComment }
+  | { kind: "event"; id: string; at: string; event: TicketHistory };
+
+const humanize = (value: string) => value.replace(/([a-z])([A-Z])/g, "$1 $2");
+
+function DetailRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-border py-3 text-sm last:border-0">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-right">{children}</dd>
+    </div>
+  );
+}
 
 export default function TicketDetailsPage() {
   const router = useRouter();
@@ -81,9 +89,36 @@ export default function TicketDetailsPage() {
     };
   }, [ready, ticketId]);
 
+  const activity = useMemo<ActivityItem[]>(() => {
+    if (!ticket) return [];
+
+    const items: ActivityItem[] = [
+      ...ticket.comments.map(
+        (c): ActivityItem => ({
+          kind: "comment",
+          id: `c-${c.id}`,
+          at: c.createdAt,
+          comment: c,
+        })
+      ),
+      ...ticket.ticketHistories
+        .filter((h) => h.actionType !== "CommentAdded")
+        .map(
+          (h): ActivityItem => ({
+            kind: "event",
+            id: `h-${h.id}`,
+            at: h.createdAt,
+            event: h,
+          })
+        ),
+    ];
+
+    return items.sort((a, b) => +new Date(a.at) - +new Date(b.at));
+  }, [ticket]);
+
   const addComment = async () => {
     if (!comment.trim()) {
-      setCommentError("The Content field is required.");
+      setCommentError("Write a comment before sending.");
       return;
     }
 
@@ -119,15 +154,30 @@ export default function TicketDetailsPage() {
   };
 
   if (!ready || loading) {
-    return <div className="p-6">Loading ticket...</div>;
+    return (
+      <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-8">
+        <Skeleton className="h-6 w-24" />
+        <Skeleton className="h-10 w-96 max-w-full" />
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <Skeleton className="h-96" />
+          <Skeleton className="h-72" />
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="p-6 text-red-500">{error}</div>;
+    return (
+      <div className="mx-auto max-w-6xl p-4 md:p-8">
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      </div>
+    );
   }
 
   if (!ticket) {
-    return <div className="p-6">Ticket not found</div>;
+    return <div className="p-6 text-muted-foreground">Ticket not found.</div>;
   }
 
   const isStaff = role === "Admin" || role === "Technician";
@@ -136,278 +186,228 @@ export default function TicketDetailsPage() {
   const canDelete = ticket.status === "Open" && role === "Admin";
   const canComment = ticket.status === "Open" || ticket.status === "InProgress";
 
-  const histories = ticket.ticketHistories.filter(
-    (history) => history.actionType !== "CommentAdded"
-  );
+  const typeLabel =
+    ticket.type === "ServiceRequest" ? "Service request" : ticket.type;
 
   return (
-    <div className="container mx-auto max-w-5xl space-y-8 p-6">
+    <div className="mx-auto w-full max-w-6xl space-y-8 p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Ticket Details</h1>
-          <p className="mt-2 text-muted-foreground">
-            View and track your support ticket
-          </p>
-        </div>
-
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
           Back
-        </Button>
-      </div>
+        </button>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="border-b bg-muted/30">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="space-y-2">
-              <CardTitle className="text-2xl">{ticket.title}</CardTitle>
-              <CardDescription>Ticket ID: {ticket.id}</CardDescription>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <StatusMark status={ticket.status} />
+              <PriorityMark priority={ticket.priority} />
+
+              <span className="text-sm text-muted-foreground">{typeLabel}</span>
+
+              <span className="text-xs text-muted-foreground tabular-nums">
+                #{shortId(ticket.id)}
+              </span>
             </div>
 
-            <div className="flex flex-col items-center gap-3">
-              <Badge className={`w-50 ${getStatusClass(ticket.status)}`}>
-                {ticket.status}
-              </Badge>
-
-              {(canEdit || canSolve || canDelete) && (
-                <div className="flex flex-wrap justify-center gap-2">
-                  {canEdit && (
-                    <Button
-                      className="w-24"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => router.push(`/tickets/${ticket.id}/edit`)}
-                    >
-                      Edit
-                    </Button>
-                  )}
-
-                  {canSolve && (
-                    <Button
-                      className="w-24"
-                      size="sm"
-                      onClick={() => router.push(`/tickets/${ticket.id}/solve`)}
-                    >
-                      Solve
-                    </Button>
-                  )}
-
-                  {canDelete && (
-                    <Button
-                      className="w-24 bg-red-600 text-white hover:bg-red-700"
-                      size="sm"
-                      onClick={() => setDeleteOpen(true)}
-                    >
-                      Delete
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-8 p-6">
-          {/* Description */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold">Description</h2>
-            <div className="rounded-lg border bg-muted/20 p-4">
-              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                {ticket.description}
-              </p>
-            </div>
+            <h1 className="text-2xl font-medium tracking-tight">
+              <bdi>{ticket.title}</bdi>
+            </h1>
           </div>
 
-          <Separator />
+          <div className="flex flex-wrap gap-2">
+            {canEdit && (
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/tickets/${ticket.id}/edit`)}
+              >
+                <Pencil className="h-4 w-4" />
+                Edit
+              </Button>
+            )}
 
-          {/* Information */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Ticket Information</h2>
+            {canSolve && (
+              <Button onClick={() => router.push(`/tickets/${ticket.id}/solve`)}>
+                <CheckCircle2 className="h-4 w-4" />
+                Solve
+              </Button>
+            )}
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg border p-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Tag className="h-4 w-4" />
-                  Priority
-                </div>
-                <div className="mt-2">
-                  <Badge
-                    variant="outline"
-                    className={getPriorityClass(ticket.priority)}
-                  >
-                    {ticket.priority}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="rounded-lg border p-4">
-                <div className="text-sm text-muted-foreground">Type</div>
-                <p className="mt-2 font-medium">
-                  {ticket.type === "ServiceRequest"
-                    ? "Service Request"
-                    : ticket.type}
-                </p>
-              </div>
-
-              <div className="rounded-lg border p-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Tag className="h-4 w-4" />
-                  Category
-                </div>
-                <p className="mt-2 font-medium">{ticket.category}</p>
-              </div>
-
-              <div className="rounded-lg border p-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <User className="h-4 w-4" />
-                  Assigned To
-                </div>
-                <p className="mt-2 font-medium">
-                  {ticket.assignedTechnicianId || "Not assigned"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* History */}
-          <div>
-            <h2 className="mb-4 text-lg font-semibold">History</h2>
-            <div className="rounded-lg border p-4">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="px-4 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-left">Action</th>
-                    <th className="px-4 py-3 text-left">Performed By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {histories.map((history) => (
-                    <tr key={history.id} className="border-b last:border-0">
-                      <td className="px-4 py-3">
-                        {formatDate(history.createdAt)}
-                      </td>
-                      <td className="px-4 py-3">{history.actionType}</td>
-                      <td className="px-4 py-3">{history.performedByUserId}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Timeline */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Timeline</h2>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex items-center gap-3 rounded-lg border p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Created At</p>
-                  <p className="font-medium">{formatDate(ticket.createdAt)}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 rounded-lg border p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Last Updated</p>
-                  <p className="font-medium">
-                    {ticket.updatedAt
-                      ? formatDate(ticket.updatedAt)
-                      : "Not updated"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Comments */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Comments</h2>
-
-            {ticket.comments.length > 0 ? (
-              <div className="space-y-4">
-                {ticket.comments.map((item) => (
-                  <div key={item.id} className="rounded-lg border p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                          <User className="h-4 w-4" />
-                        </div>
-                        <span className="text-sm font-medium">
-                          {item.authorName ?? item.authorUserId}
-                        </span>
-                      </div>
-
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(item.createdAt)}
-                      </span>
-                    </div>
-
-                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                      {item.content}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-6">
-                <p className="text-sm text-muted-foreground">No comments yet.</p>
-              </div>
+            {canDelete && (
+              <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
             )}
           </div>
+        </div>
+      </div>
 
-          {canComment && (
-            <div className="space-y-2">
-              <Textarea
-                placeholder="Write comment..."
-                value={comment}
-                onChange={(e) => {
-                  setComment(e.target.value);
-                  setCommentError("");
-                }}
-              />
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        {/* Main column */}
+        <div className="min-w-0 space-y-10">
+          <section className="space-y-2">
+            <h2 className="text-sm text-muted-foreground">Description</h2>
+            <p
+              dir="auto"
+              className="whitespace-pre-wrap text-[15px] leading-7"
+            >
+              {ticket.description}
+            </p>
+          </section>
 
-              {commentError && (
-                <div className="p-1 text-sm text-red-600">{commentError}</div>
+          <section className="space-y-4">
+            <h2 className="text-sm text-muted-foreground">
+              Activity
+              <span className="ml-1.5 tabular-nums">({activity.length})</span>
+            </h2>
+
+            {activity.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nothing here yet. Be the first to comment.
+              </p>
+            ) : (
+              <ol className="relative ml-2 space-y-6 border-l border-border">
+                {activity.map((item) =>
+                  item.kind === "event" ? (
+                    <li key={item.id} className="relative pl-6">
+                      <span className="absolute -left-[5.5px] top-[7px] h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background" />
+
+                      <p className="text-sm text-muted-foreground">
+                        <span className="text-foreground">
+                          {humanize(item.event.actionType)}
+                        </span>{" "}
+                        by{" "}
+                        <span title={item.event.performedByUserId}>
+                          {shortId(item.event.performedByUserId)}
+                        </span>
+                        <span className="mx-1.5">-</span>
+                        <span className="tabular-nums">
+                          {formatDateShort(item.at)}
+                        </span>
+                      </p>
+                    </li>
+                  ) : (
+                    <li key={item.id} className="relative pl-6">
+                      <span className="absolute -left-[5.5px] top-[7px] h-2.5 w-2.5 rounded-full border-2 border-primary bg-background ring-4 ring-background" />
+
+                      <div className="rounded-lg bg-muted/70 px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarFallback className="text-[10px]">
+                                {(
+                                  item.comment.authorName ??
+                                  shortId(item.comment.authorUserId)
+                                )
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium">
+                              {item.comment.authorName ??
+                                shortId(item.comment.authorUserId)}
+                            </span>
+                          </div>
+
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {formatDateShort(item.at)}
+                          </span>
+                        </div>
+
+                        <p
+                          dir="auto"
+                          className="mt-2 whitespace-pre-wrap text-sm leading-6"
+                        >
+                          {item.comment.content}
+                        </p>
+                      </div>
+                    </li>
+                  )
+                )}
+              </ol>
+            )}
+
+            {canComment ? (
+              <div className="space-y-2 pt-2">
+                <Textarea
+                  dir="auto"
+                  rows={3}
+                  placeholder="Write a comment..."
+                  value={comment}
+                  onChange={(e) => {
+                    setComment(e.target.value);
+                    setCommentError("");
+                  }}
+                />
+
+                {commentError && (
+                  <p className="text-sm text-destructive">{commentError}</p>
+                )}
+
+                <div className="flex justify-end">
+                  <Button type="button" disabled={sending} onClick={addComment}>
+                    <ArrowUp className="h-4 w-4" />
+                    {sending ? "Sending..." : "Send"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="border-t pt-4 text-sm text-muted-foreground">
+                This ticket is closed, so comments are turned off.
+              </p>
+            )}
+          </section>
+        </div>
+
+        {/* Details panel */}
+        <aside className="dark rounded-lg bg-card p-5 text-card-foreground lg:sticky lg:top-20">
+          <h2 className="mb-1 text-sm text-muted-foreground">Details</h2>
+
+          <dl>
+            <DetailRow label="Type">{typeLabel}</DetailRow>
+            <DetailRow label="Category">{ticket.category}</DetailRow>
+            <DetailRow label="Created by">
+              <span className="tabular-nums" title={ticket.createdByUserId}>
+                {shortId(ticket.createdByUserId)}
+              </span>
+            </DetailRow>
+            <DetailRow label="Assigned to">
+              {ticket.assignedTechnicianId ? (
+                <span
+                  className="tabular-nums"
+                  title={ticket.assignedTechnicianId}
+                >
+                  {shortId(ticket.assignedTechnicianId)}
+                </span>
+              ) : (
+                <span className="text-destructive">Unassigned</span>
               )}
-
-              <Button
-                className="w-full"
-                type="button"
-                disabled={sending}
-                onClick={addComment}
-              >
-                <ArrowUp className="h-4 w-4" />
-                {sending ? "Sending..." : "Send"}
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </DetailRow>
+            <DetailRow label="Created">
+              <span className="tabular-nums">{formatDate(ticket.createdAt)}</span>
+            </DetailRow>
+            <DetailRow label="Updated">
+              <span className="tabular-nums">
+                {ticket.updatedAt ? formatDate(ticket.updatedAt) : "-"}
+              </span>
+            </DetailRow>
+          </dl>
+        </aside>
+      </div>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Are you sure you want to delete this ticket?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Delete this ticket?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. The ticket will be permanently
-              deleted.
+              This can't be undone. The ticket and its comments will be
+              permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -415,7 +415,7 @@ export default function TicketDetailsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>

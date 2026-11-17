@@ -5,16 +5,17 @@ import { useRouter } from "next/navigation";
 
 import { createUser } from "@/lib/api";
 import { useRequireRole } from "@/hooks/use-require-role";
-import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Field,
+  FormActions,
+  FormError,
+  FormPage,
+} from "@/components/form-page";
+import { Segmented } from "@/components/segmented";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
+type NewRole = "Technician" | "Employee";
 
 export default function CreateUserPage() {
   const router = useRouter();
@@ -24,118 +25,110 @@ export default function CreateUserPage() {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [role, setRole] = useState("Technician");
+  const [role, setRole] = useState<NewRole>("Technician");
 
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     setError("");
-    setLoading(true);
+    setSaving(true);
 
     try {
       await createUser({ email, password, firstName, lastName, role });
       router.push("/admin/users");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create user");
-    } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
   if (!ready) {
-    return <div className="p-6">Loading...</div>;
+    return <div className="p-6 text-muted-foreground">Loading...</div>;
   }
 
   return (
-    <div className="container mx-auto max-w-3xl p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Create User</CardTitle>
-          <CardDescription>Create a new user</CardDescription>
-        </CardHeader>
+    <FormPage
+      title="New user"
+      description="Create an account for a technician or an employee."
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid gap-6 sm:grid-cols-2">
+          <Field label="First name" htmlFor="firstName">
+            <Input
+              id="firstName"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required
+            />
+          </Field>
 
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="employee@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
+          <Field label="Last name" htmlFor="lastName">
+            <Input
+              id="lastName"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+            />
+          </Field>
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+        <Field label="Email" htmlFor="email">
+          <Input
+            id="email"
+            type="email"
+            placeholder="name@company.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </Field>
 
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
-              <Input
-                id="firstName"
-                placeholder="Mohammed"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-              />
-            </div>
+        <Field
+          label="Password"
+          htmlFor="password"
+          hint="The user can use this to sign in right away."
+        >
+          <Input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </Field>
 
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input
-                id="lastName"
-                placeholder="Fahad"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-              />
-            </div>
+        <Field label="Role">
+          <Segmented
+            label="Role"
+            value={role}
+            onChange={setRole}
+            options={[
+              { value: "Technician", label: "Technician" },
+              { value: "Employee", label: "Employee" },
+            ]}
+          />
+        </Field>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <select
-                id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full rounded-md border px-3 py-2"
-              >
-                <option value="Technician">Technician</option>
-                <option value="Employee">Employee</option>
-              </select>
-            </div>
+        <FormError message={error} />
 
-            {error && (
-              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-                {error}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" onClick={() => router.back()}>
-                Cancel
-              </Button>
-
-              <Button type="submit" disabled={loading}>
-                {loading ? "Creating..." : "Create User"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        <FormActions>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            onClick={() => router.back()}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Creating..." : "Create user"}
+          </Button>
+        </FormActions>
+      </form>
+    </FormPage>
   );
 }

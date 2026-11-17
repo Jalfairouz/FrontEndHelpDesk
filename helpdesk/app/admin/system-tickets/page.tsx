@@ -1,20 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Filter, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 
 import { getSystemTickets } from "@/lib/api";
 import { useRequireRole } from "@/hooks/use-require-role";
-import { TicketListItem } from "@/components/ticket-list-item";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { FilterTabs } from "@/components/filter-tabs";
+import { TicketPanel } from "@/components/ticket-panel";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import type { StatusFilter, Ticket } from "@/types";
+
+const STATUS_TABS: { value: StatusFilter; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "Open", label: "Open" },
+  { value: "InProgress", label: "In progress" },
+  { value: "Closed", label: "Closed" },
+];
 
 export default function AdminTicketsPage() {
   const { ready } = useRequireRole(["Admin"]);
@@ -25,6 +28,7 @@ export default function AdminTicketsPage() {
 
   const [status, setStatus] = useState<StatusFilter>("");
   const [unassigned, setUnassigned] = useState(false);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (!ready) return;
@@ -58,109 +62,87 @@ export default function AdminTicketsPage() {
     };
   }, [ready, status, unassigned]);
 
-  const resetFilters = () => {
-    setStatus("");
-    setUnassigned(false);
-  };
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return tickets;
+
+    return tickets.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q)
+    );
+  }, [tickets, query]);
 
   if (!ready) {
-    return <div className="p-6">Loading...</div>;
+    return <div className="p-6 text-muted-foreground">Loading...</div>;
   }
 
   return (
-    <div className="container mx-auto space-y-8 p-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">System Tickets</h1>
-        <p className="mt-2 text-muted-foreground">
-          Manage and assign support tickets
+        <h1 className="text-2xl font-medium tracking-tight">System tickets</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {loading
+            ? "Loading tickets..."
+            : `${visible.length} ticket${visible.length === 1 ? "" : "s"}`}
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            <div>
-              <CardTitle>Filters</CardTitle>
-              <CardDescription>
-                Filter tickets by status and assignment
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterTabs
+            label="Status"
+            value={status}
+            onChange={setStatus}
+            tabs={STATUS_TABS}
+          />
 
-        <CardContent>
-          <div className="flex flex-col gap-4 md:flex-row md:items-end">
-            <div className="flex flex-col gap-2">
-              <label htmlFor="status" className="text-sm font-medium">
-                Status
-              </label>
+          <button
+            type="button"
+            aria-pressed={unassigned}
+            onClick={() => setUnassigned((v) => !v)}
+            className={cn(
+              "rounded-md border px-3 py-1.5 text-sm transition-colors",
+              unassigned
+                ? "border-primary bg-primary/10 text-foreground"
+                : "border-input text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            Unassigned only
+          </button>
+        </div>
 
-              <select
-                id="status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as StatusFilter)}
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="">All Statuses</option>
-                <option value="Open">Open</option>
-                <option value="InProgress">In Progress</option>
-                <option value="Closed">Closed</option>
-              </select>
-            </div>
-
-            <label className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm">
-              <input
-                type="checkbox"
-                checked={unassigned}
-                onChange={(e) => setUnassigned(e.target.checked)}
-                className="h-4 w-4"
-              />
-              Unassigned
-            </label>
-
-            <Button type="button" variant="outline" onClick={resetFilters}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Reset
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            placeholder="Search title or category"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+      </div>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Tickets</CardTitle>
-          <CardDescription>
-            {loading
-              ? "Loading tickets..."
-              : `${tickets.length} ticket${tickets.length === 1 ? "" : "s"} found`}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent>
-          {loading ? (
-            <div className="py-10 text-center text-muted-foreground">
-              Loading tickets...
-            </div>
-          ) : tickets.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">
-              No tickets found.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {tickets.map((ticket) => (
-                <TicketListItem key={ticket.id} ticket={ticket} canAssign />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {loading ? (
+        <Skeleton className="h-80 w-full rounded-lg" />
+      ) : visible.length === 0 ? (
+        <div className="rounded-lg border border-dashed py-14 text-center text-sm text-muted-foreground">
+          No tickets match these filters.
+        </div>
+      ) : (
+        <TicketPanel
+          variant="light"
+          title="Tickets"
+          tickets={visible}
+          canAssign
+        />
+      )}
     </div>
   );
 }

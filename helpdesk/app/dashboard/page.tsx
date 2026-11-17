@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { User } from "lucide-react";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 
 import {
   getAssignedTickets,
@@ -11,38 +11,32 @@ import {
   getTickets,
 } from "@/lib/api";
 import { useRequireRole } from "@/hooks/use-require-role";
-import { formatDate } from "@/lib/ticket-ui";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { TicketPanel } from "@/components/ticket-panel";
+import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import type { MeResponse, Role, Ticket } from "@/types";
 
 const LABELS: Record<Role, { title: string; description: string; empty: string }> =
   {
     Employee: {
-      title: "My Tickets",
+      title: "My tickets",
       description: "Tickets you created",
-      empty: "You don't have any tickets yet.",
+      empty: "You haven't created any tickets yet.",
     },
     Technician: {
-      title: "Assigned Tickets",
+      title: "Assigned to me",
       description: "Tickets assigned to you",
       empty: "No tickets are assigned to you.",
     },
     Admin: {
-      title: "System Tickets",
-      description: "Tickets created by other users",
-      empty: "There are no system tickets.",
+      title: "All tickets",
+      description: "Tickets from all users",
+      empty: "There are no tickets in the system.",
     },
   };
 
 export default function DashboardPage() {
-  const router = useRouter();
   const { ready, role } = useRequireRole();
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -91,7 +85,17 @@ export default function DashboardPage() {
   }, [ready, role]);
 
   if (!ready || loading) {
-    return <div className="p-6">Loading...</div>;
+    return (
+      <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-8">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-28 rounded-lg" />
+          ))}
+        </div>
+        <Skeleton className="h-72 rounded-lg" />
+      </div>
+    );
   }
 
   const label = LABELS[role ?? "Employee"];
@@ -99,123 +103,88 @@ export default function DashboardPage() {
   const countByStatus = (status: Ticket["status"]) =>
     tickets.filter((ticket) => ticket.status === status).length;
 
+  const stats: { label: string; value: number; dot?: string }[] = [
+    { label: label.title, value: tickets.length },
+    { label: "Open", value: countByStatus("Open"), dot: "bg-chart-2" },
+    {
+      label: "In progress",
+      value: countByStatus("InProgress"),
+      dot: "border-2 border-chart-2",
+    },
+    {
+      label: "Closed",
+      value: countByStatus("Closed"),
+      dot: "bg-muted-foreground/60",
+    },
+  ];
+
+  const recent = [...tickets]
+    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+    .slice(0, 6);
+
   return (
-    <div className="container mx-auto space-y-8 p-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="pb-4 text-muted-foreground">
-          Welcome to your IT Help Desk
-        </p>
-
-        <div className="flex items-center gap-8 rounded-lg border bg-background px-4 py-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-            <User className="h-5 w-5 text-muted-foreground" />
-          </div>
-
-          <div className="leading-tight">
-            <p className="font-medium">
-              {user?.firstName} {user?.lastName}
-            </p>
-            <p className="text-sm text-muted-foreground">{user?.email}</p>
-          </div>
+    <div className="mx-auto w-full max-w-6xl space-y-8 p-4 md:p-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-medium tracking-tight">
+            Welcome{user ? `, ${user.firstName}` : ""}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {label.description}
+          </p>
         </div>
+
+        {role !== "Technician" && (
+          <Link href="/tickets/create" className={buttonVariants()}>
+            <Plus className="h-4 w-4" />
+            New ticket
+          </Link>
+        )}
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>{label.title}</CardTitle>
-            <CardDescription>{label.description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{tickets.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Open</CardTitle>
-            <CardDescription>Tickets waiting to be handled</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{countByStatus("Open")}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>In Progress</CardTitle>
-            <CardDescription>Tickets being handled</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {countByStatus("InProgress")}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Closed</CardTitle>
-            <CardDescription>Completed tickets</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{countByStatus("Closed")}</div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            className="flex min-h-28 flex-col justify-between rounded-lg border bg-card p-4 text-card-foreground"
+          >
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              {stat.dot && (
+                <span className={cn("h-2.5 w-2.5 rounded-full", stat.dot)} />
+              )}
+              <span className="truncate">{stat.label}</span>
+            </p>
+            <p className="text-3xl font-medium tabular-nums">{stat.value}</p>
+          </div>
+        ))}
       </div>
 
-      <Card>
-        <CardHeader className="flex items-center justify-between">
-          <CardTitle>{label.title}</CardTitle>
-          <CardDescription>Your recent IT support tickets</CardDescription>
-
-          {role !== "Technician" && (
-            <Button onClick={() => router.push("/tickets/create")}>
-              Create New Ticket
-            </Button>
-          )}
-        </CardHeader>
-
-        <CardContent>
-          {tickets.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">
-              {label.empty}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {tickets.map((ticket) => (
-                <div
-                  key={ticket.id}
-                  className="flex items-center justify-between rounded-lg border p-4"
-                >
-                  <div>
-                    <h2 className="font-medium">{ticket.title}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {ticket.category} · {ticket.priority} ·{" "}
-                      {formatDate(ticket.createdAt)} · {ticket.status}
-                    </p>
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`/tickets/${ticket.id}`)}
-                  >
-                    View Ticket
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {recent.length === 0 ? (
+        <div className="rounded-lg border border-dashed py-14 text-center text-sm text-muted-foreground">
+          {label.empty}
+        </div>
+      ) : (
+        <TicketPanel
+          variant="light"
+          title="Latest tickets"
+          tickets={recent}
+          canAssign={role === "Admin"}
+          action={
+            <Link
+              href={role === "Admin" ? "/admin/system-tickets" : "/tickets"}
+              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              View all
+            </Link>
+          }
+        />
+      )}
     </div>
   );
 }

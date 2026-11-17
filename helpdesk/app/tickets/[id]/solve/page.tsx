@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { AlignLeft, ArrowLeft, FileText } from "lucide-react";
 
 import {
   addCommentToTicket,
@@ -10,22 +9,10 @@ import {
   updateTicketStatus,
 } from "@/lib/api";
 import { useRequireRole } from "@/hooks/use-require-role";
+import { Field, FormActions, FormError, FormPage } from "@/components/form-page";
+import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { TicketDetails, TicketStatus } from "@/types";
 
@@ -76,7 +63,7 @@ export default function SolveTicketPage() {
     setError("");
 
     if (status === "Closed" && !comment.trim()) {
-      setError("Please add a comment before closing the ticket.");
+      setError("Add a resolution note before closing the ticket.");
       return;
     }
 
@@ -95,121 +82,97 @@ export default function SolveTicketPage() {
       router.push(`/tickets/${ticketId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update ticket");
-    } finally {
       setSaving(false);
     }
   };
 
   if (!ready || loading) {
-    return <div className="p-6">Loading...</div>;
+    return (
+      <div className="mx-auto w-full max-w-2xl space-y-4 p-4 md:p-8">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   }
 
   const isClosed = ticket?.status === "Closed";
 
   return (
-    <div className="container mx-auto max-w-3xl p-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Solve Ticket</CardTitle>
-              <CardDescription>Update the ticket status</CardDescription>
-            </div>
+    <FormPage title="Update status" description="Move the ticket forward or close it.">
+      <div className="space-y-8">
+        {ticket && (
+          <section className="space-y-1 border-l-2 border-primary pl-4">
+            <p dir="auto" className="font-medium">
+              <bdi>{ticket.title}</bdi>
+            </p>
+            <p
+              dir="auto"
+              className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground"
+            >
+              {ticket.description}
+            </p>
+          </section>
+        )}
 
-            <Button variant="outline" onClick={() => router.back()}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
+        {isClosed ? (
+          <div className="rounded-md border p-3 text-sm text-muted-foreground">
+            This ticket is closed and can't be changed anymore.
           </div>
-        </CardHeader>
+        ) : (
+          <div className="space-y-6">
+            <Field label="Outcome">
+              <Segmented
+                label="Outcome"
+                value={status}
+                onChange={setStatus}
+                options={[
+                  { value: "InProgress", label: "Keep in progress" },
+                  { value: "Closed", label: "Close ticket" },
+                ]}
+              />
+            </Field>
 
-        <CardContent className="space-y-6">
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
+            {status === "Closed" && (
+              <Field
+                label="Resolution note"
+                htmlFor="comment"
+                hint="Added to the ticket as a comment before it closes."
+              >
+                <Textarea
+                  id="comment"
+                  dir="auto"
+                  rows={4}
+                  placeholder="What fixed the problem?"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                />
+              </Field>
+            )}
 
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">Ticket Details</Label>
+            <FormError message={error} />
 
-            <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
-              <div className="flex items-start gap-3">
-                <FileText className="mt-0.5 h-4 w-4 text-primary" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Title</p>
-                  <p className="mt-1 text-sm font-medium">
-                    {ticket?.title || "No title"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <AlignLeft className="mt-0.5 h-4 w-4 text-primary" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Description</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">
-                    {ticket?.description || "No description"}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <FormActions>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={() => router.back()}
+              >
+                Cancel
+              </Button>
+              <Button type="button" disabled={saving} onClick={handleSubmit}>
+                {saving
+                  ? "Saving..."
+                  : status === "Closed"
+                  ? "Close ticket"
+                  : "Save"}
+              </Button>
+            </FormActions>
           </div>
+        )}
 
-          {isClosed ? (
-            <div className="rounded-md border p-3 text-sm text-muted-foreground">
-              This ticket is closed and can no longer be changed.
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label>Status</Label>
-
-                <Select
-                  value={status}
-                  onValueChange={(value) => setStatus(value as TicketStatus)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectItem value="InProgress">In Progress</SelectItem>
-                    <SelectItem value="Closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {status === "Closed" && (
-                <div className="space-y-2">
-                  <Label htmlFor="comment">Comment</Label>
-                  <Textarea
-                    id="comment"
-                    placeholder="Add a comment before closing the ticket..."
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    className="min-h-[120px]"
-                  />
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => router.back()}
-                  disabled={saving}
-                >
-                  Cancel
-                </Button>
-
-                <Button onClick={handleSubmit} disabled={saving}>
-                  {saving ? "Saving..." : "Update Status"}
-                </Button>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+        {isClosed && error && <FormError message={error} />}
+      </div>
+    </FormPage>
   );
 }
