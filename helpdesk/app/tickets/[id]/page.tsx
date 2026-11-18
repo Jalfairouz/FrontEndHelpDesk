@@ -4,11 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowUp, CheckCircle2, Pencil, Trash2 } from "lucide-react";
 
-import {
-  addCommentToTicket,
-  deleteTicket,
-  getTicketById,
-} from "@/lib/api";
+import { addCommentToTicket, deleteTicket, getTicketById } from "@/lib/api";
 import { useRequireRole } from "@/hooks/use-require-role";
 import {
   displayName,
@@ -38,6 +34,27 @@ type ActivityItem =
   | { kind: "event"; id: string; at: string; event: TicketHistory };
 
 const humanize = (value: string) => value.replace(/([a-z])([A-Z])/g, "$1 $2");
+
+const SYSTEM_NAME = "System";
+
+function ActivityEvent({ event }: { event: TicketHistory }) {
+  const performer = displayName(event.performedByName, event.performedByUserId);
+  const bySystem = performer === SYSTEM_NAME;
+
+  return (
+    <p className="text-sm text-muted-foreground">
+      <span className="text-foreground">{humanize(event.actionType)}</span>
+      {!bySystem && (
+        <>
+          {" "}
+          by <span title={event.performedByUserId}>{performer}</span>
+        </>
+      )}
+      <span className="mx-1.5">-</span>
+      <span className="tabular-nums">{formatDateShort(event.createdAt)}</span>
+    </p>
+  );
+}
 
 function DetailRow({
   label,
@@ -80,7 +97,9 @@ export default function TicketDetailsPage() {
         if (!cancelled) setTicket(data);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load ticket");
+          setError(
+            err instanceof Error ? err.message : "Failed to load ticket",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -104,7 +123,7 @@ export default function TicketDetailsPage() {
           id: `c-${c.id}`,
           at: c.createdAt,
           comment: c,
-        })
+        }),
       ),
       ...ticket.ticketHistories
         .filter((h) => h.actionType !== "CommentAdded")
@@ -114,7 +133,7 @@ export default function TicketDetailsPage() {
             id: `h-${h.id}`,
             at: h.createdAt,
             event: h,
-          })
+          }),
         ),
     ];
 
@@ -133,12 +152,12 @@ export default function TicketDetailsPage() {
       const data = await addCommentToTicket(ticketId, comment.trim());
 
       setTicket((prev) =>
-        prev ? { ...prev, comments: [...prev.comments, data] } : null
+        prev ? { ...prev, comments: [...prev.comments, data] } : null,
       );
       setComment("");
     } catch (err) {
       setCommentError(
-        err instanceof Error ? err.message : "Failed to add comment"
+        err instanceof Error ? err.message : "Failed to add comment",
       );
     } finally {
       setSending(false);
@@ -237,7 +256,9 @@ export default function TicketDetailsPage() {
             )}
 
             {canSolve && (
-              <Button onClick={() => router.push(`/tickets/${ticket.id}/solve`)}>
+              <Button
+                onClick={() => router.push(`/tickets/${ticket.id}/solve`)}
+              >
                 <CheckCircle2 className="h-4 w-4" />
                 Solve
               </Button>
@@ -258,10 +279,7 @@ export default function TicketDetailsPage() {
         <div className="min-w-0 space-y-10">
           <section className="space-y-2">
             <h2 className="text-sm text-muted-foreground">Description</h2>
-            <p
-              dir="auto"
-              className="whitespace-pre-wrap text-[15px] leading-7"
-            >
+            <p dir="auto" className="whitespace-pre-wrap text-[15px] leading-7">
               {ticket.description}
             </p>
           </section>
@@ -283,28 +301,13 @@ export default function TicketDetailsPage() {
                     <li key={item.id} className="relative pl-6">
                       <span className="absolute -left-[5.5px] top-[7px] h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background" />
 
-                      <p className="text-sm text-muted-foreground">
-                        <span className="text-foreground">
-                          {humanize(item.event.actionType)}
-                        </span>{" "}
-                        by{" "}
-                        <span title={item.event.performedByUserId}>
-                          {displayName(
-                            item.event.performedByName,
-                            item.event.performedByUserId,
-                          )}
-                        </span>
-                        <span className="mx-1.5">-</span>
-                        <span className="tabular-nums">
-                          {formatDateShort(item.at)}
-                        </span>
-                      </p>
+                      <ActivityEvent event={item.event} />
                     </li>
                   ) : (
                     <li key={item.id} className="relative pl-6">
                       <span className="absolute -left-[5.5px] top-[7px] h-2.5 w-2.5 rounded-full border-2 border-primary bg-background ring-4 ring-background" />
 
-                      <div className="rounded-lg bg-muted/70 px-4 py-3">
+                      <div className="rounded-lg border bg-card px-4 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <Avatar className="h-6 w-6">
@@ -338,7 +341,7 @@ export default function TicketDetailsPage() {
                         </p>
                       </div>
                     </li>
-                  )
+                  ),
                 )}
               </ol>
             )}
@@ -376,23 +379,20 @@ export default function TicketDetailsPage() {
         </div>
 
         {/* Details panel */}
-        <aside className="dark rounded-lg bg-card p-5 text-card-foreground lg:sticky lg:top-20">
-          <h2 className="mb-1 text-sm text-muted-foreground">Details</h2>
+        <aside className="rounded-lg border bg-card p-5 text-card-foreground lg:sticky lg:top-20">
+          <h2 className="mb-1 text-sm font-medium">Details</h2>
 
           <dl>
             <DetailRow label="Type">{typeLabel}</DetailRow>
             <DetailRow label="Category">{ticket.category}</DetailRow>
             <DetailRow label="Created by">
-              <span className="tabular-nums" title={ticket.createdByUserId}>
+              <span title={ticket.createdByUserId}>
                 {displayName(ticket.createdByName, ticket.createdByUserId)}
               </span>
             </DetailRow>
             <DetailRow label="Assigned to">
               {ticket.assignedTechnicianId ? (
-                <span
-                  className="tabular-nums"
-                  title={ticket.assignedTechnicianId}
-                >
+                <span title={ticket.assignedTechnicianId}>
                   {displayName(
                     ticket.assignedTechnicianName,
                     ticket.assignedTechnicianId,
@@ -403,7 +403,9 @@ export default function TicketDetailsPage() {
               )}
             </DetailRow>
             <DetailRow label="Created">
-              <span className="tabular-nums">{formatDate(ticket.createdAt)}</span>
+              <span className="tabular-nums">
+                {formatDate(ticket.createdAt)}
+              </span>
             </DetailRow>
             <DetailRow label="Updated">
               <span className="tabular-nums">
