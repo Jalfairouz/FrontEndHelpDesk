@@ -34,12 +34,16 @@ export default function TicketsPage() {
 
       try {
         const data =
-          role === "Technician" ? await getAssignedTickets() : await getTickets();
+          role === "Technician"
+            ? await getAssignedTickets()
+            : await getTickets();
 
         if (!cancelled) setTickets(data);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load tickets");
+          setError(
+            err instanceof Error ? err.message : "Failed to load tickets",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);

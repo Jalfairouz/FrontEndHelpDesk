@@ -24,7 +24,9 @@ export interface Ticket {
   type: TicketType;
   category: TicketCategory;
   createdByUserId: string;
+  createdByName?: string;
   assignedTechnicianId: string | null;
+  assignedTechnicianName?: string | null;
   createdAt: string;
   updatedAt: string | null;
   closedAt: string | null;
@@ -39,7 +41,9 @@ export interface TicketDetails {
   priority: string;
   status: string;
   createdByUserId: string;
+  createdByName?: string;
   assignedTechnicianId: string | null;
+  assignedTechnicianName?: string | null;
   createdAt: string;
   updatedAt: string | null;
   closedAt: string | null;
@@ -51,6 +55,7 @@ export interface TicketHistory {
   id: string;
   ticketId: string;
   performedByUserId: string;
+  performedByName?: string;
   actionType: string;
   createdAt: string;
 }

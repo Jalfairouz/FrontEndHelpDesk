@@ -31,6 +31,14 @@ export function formatDate(value: string | null | undefined): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
+/** Prefer a resolved display name; fall back to a short id. */
+export function displayName(
+  name: string | null | undefined,
+  id: string | null | undefined,
+): string {
+  return name?.trim() || shortId(id);
+}
+
 export function shortId(id: string | null | undefined): string {
   return id ? id.slice(0, 8) : "-";
 }

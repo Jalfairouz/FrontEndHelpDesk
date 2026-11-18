@@ -10,7 +10,12 @@ import {
   getTicketById,
 } from "@/lib/api";
 import { useRequireRole } from "@/hooks/use-require-role";
-import { formatDate, formatDateShort, shortId } from "@/lib/ticket-ui";
+import {
+  displayName,
+  formatDate,
+  formatDateShort,
+  shortId,
+} from "@/lib/ticket-ui";
 import { PriorityMark, StatusMark } from "@/components/status-mark";
 import {
   AlertDialog,
@@ -284,7 +289,10 @@ export default function TicketDetailsPage() {
                         </span>{" "}
                         by{" "}
                         <span title={item.event.performedByUserId}>
-                          {shortId(item.event.performedByUserId)}
+                          {displayName(
+                            item.event.performedByName,
+                            item.event.performedByUserId,
+                          )}
                         </span>
                         <span className="mx-1.5">-</span>
                         <span className="tabular-nums">
@@ -301,17 +309,19 @@ export default function TicketDetailsPage() {
                           <div className="flex items-center gap-2">
                             <Avatar className="h-6 w-6">
                               <AvatarFallback className="text-[10px]">
-                                {(
-                                  item.comment.authorName ??
-                                  shortId(item.comment.authorUserId)
+                                {displayName(
+                                  item.comment.authorName,
+                                  item.comment.authorUserId,
                                 )
                                   .slice(0, 2)
                                   .toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                             <span className="text-sm font-medium">
-                              {item.comment.authorName ??
-                                shortId(item.comment.authorUserId)}
+                              {displayName(
+                                item.comment.authorName,
+                                item.comment.authorUserId,
+                              )}
                             </span>
                           </div>
 
@@ -374,7 +384,7 @@ export default function TicketDetailsPage() {
             <DetailRow label="Category">{ticket.category}</DetailRow>
             <DetailRow label="Created by">
               <span className="tabular-nums" title={ticket.createdByUserId}>
-                {shortId(ticket.createdByUserId)}
+                {displayName(ticket.createdByName, ticket.createdByUserId)}
               </span>
             </DetailRow>
             <DetailRow label="Assigned to">
@@ -383,7 +393,10 @@ export default function TicketDetailsPage() {
                   className="tabular-nums"
                   title={ticket.assignedTechnicianId}
                 >
-                  {shortId(ticket.assignedTechnicianId)}
+                  {displayName(
+                    ticket.assignedTechnicianName,
+                    ticket.assignedTechnicianId,
+                  )}
                 </span>
               ) : (
                 <span className="text-destructive">Unassigned</span>

@@ -7,7 +7,7 @@ import {
   formatDateShort,
   getPriorityClass,
   getStatusClass,
-  shortId,
+  displayName,
 } from "@/lib/ticket-ui";
 import type { Ticket } from "@/types";
 
@@ -66,7 +66,7 @@ export function TicketListItem({ ticket, canAssign = false }: Props) {
           <span>
             {ticket.assignedTechnicianId ? (
               <span title={ticket.assignedTechnicianId}>
-                {shortId(ticket.assignedTechnicianId)}
+                {displayName(ticket.assignedTechnicianName, ticket.assignedTechnicianId)}
               </span>
             ) : (
               <span className="font-medium text-destructive">Unassigned</span>
